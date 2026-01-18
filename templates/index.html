@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Witswap Marine Data Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .status.success {
+            color: #28a745;
+        }
+
+        .status.error {
+            color: #dc3545;
+        }
+
+        .current-data {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .current-data h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .data-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+
+        .data-item label {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .data-item value {
+            display: block;
+            color: #333;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .chart-container h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+
+        .trend {
+            font-size: 14px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+
+        .trend.rising {
+            color: #fff;
+            background-color: #28a745;
+        }
+
+        .trend.falling {
+            color: #fff;
+            background-color: #dc3545;
+        }
+
+        .trend.stable {
+            color: #fff;
+            background-color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Port of Napier Marine Data Tracker</h1>
+
+        <div class="controls">
+            <button class="btn" onclick="fetchData()">Fetch Data Now</button>
+            <div class="status" id="status">Ready</div>
+            <div class="status">Last updated: <span id="lastUpdate">Never</span></div>
+        </div>
+
+        <div class="current-data">
+            <h2>Current Conditions</h2>
+            <div class="data-grid" id="currentData">
+                <div class="loading">Click "Fetch Data Now" to load current conditions</div>
+            </div>
+        </div>
+
+        <div class="charts">
+            <div class="chart-container">
+                <h3>Wind Speed (Knots)</h3>
+                <canvas id="windSpeedChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Wind Direction</h3>
+                <canvas id="windDirectionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Wave Height (m) <span id="swellTrend"></span></h3>
+                <canvas id="waveChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Wave Direction</h3>
+                <canvas id="waveDirectionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Peak Period (seconds)</h3>
+                <canvas id="peakPeriodChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Tide Height (m) <span id="tideTrend"></span></h3>
+                <canvas id="tideChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        async function fetchData() {
+            const statusEl = document.getElementById('status');
+            const btn = event.target;
+
+            btn.disabled = true;
+            statusEl.textContent = 'Fetching data...';
+            statusEl.className = 'status';
+
+            try {
+                const response = await fetch('/api/fetch', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    statusEl.textContent = 'Data fetched successfully!';
+                    statusEl.className = 'status success';
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+                    await loadLatestData();
+                    await loadHistoricalData();
+                } else {
+                    statusEl.textContent = 'Error fetching data';
+                    statusEl.className = 'status error';
+                }
+            } catch (error) {
+                statusEl.textContent = 'Error: ' + error.message;
+                statusEl.className = 'status error';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function loadLatestData() {
+            try {
+                const response = await fetch('/api/latest');
+                const data = await response.json();
+
+                if (data) {
+                    const container = document.getElementById('currentData');
+                    container.innerHTML = `
+                        <div class="data-item">
+                            <label>Timestamp</label>
+                            <value>${data.timestamp || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Buoy ID</label>
+                            <value>${data.buoy_id || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Spur Wind Speed</label>
+                            <value>${data.spur_speed || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Spur Direction</label>
+                            <value>${data.spur_direction || 'N/A'}°</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Spur Max Gust</label>
+                            <value>${data.spur_gust || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Clarke Wind Speed</label>
+                            <value>${data.clarke_speed || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Clarke Direction</label>
+                            <value>${data.clarke_direction || 'N/A'}°</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Clarke Max Gust</label>
+                            <value>${data.clarke_gust || 'N/A'}</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Tide Height</label>
+                            <value>${data.tide_height || 'N/A'} m</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Wave Height</label>
+                            <value>${data.wave_height || 'N/A'} m</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Wave Direction</label>
+                            <value>${data.wave_direction || 'N/A'}°</value>
+                        </div>
+                        <div class="data-item">
+                            <label>Peak Period</label>
+                            <value>${data.peak_period || 'N/A'} s</value>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading latest data:', error);
+            }
+        }
+
+        function calculateTrend(data, field, hoursBack = 2) {
+            if (data.length === 0) return 'stable';
+
+            // Get current value (most recent)
+            const current = data[data.length - 1][field];
+            if (current === null || current === undefined) return 'stable';
+
+            // Find data point from 2 hours ago (120 minutes / 2 min intervals = 60 data points)
+            const pointsBack = (hoursBack * 60) / 2;
+            const pastIndex = Math.max(0, data.length - 1 - pointsBack);
+            const past = data[pastIndex][field];
+
+            if (past === null || past === undefined) return 'stable';
+
+            // Calculate change threshold (5% of current value, minimum 0.05)
+            const threshold = Math.max(0.05, Math.abs(current * 0.05));
+
+            if (current > past + threshold) return 'rising';
+            if (current < past - threshold) return 'falling';
+            return 'stable';
+        }
+
+        function updateTrendIndicator(elementId, trend) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            let label = '';
+            let className = 'trend ';
+
+            if (trend === 'rising') {
+                label = '▲ Rising';
+                className += 'rising';
+            } else if (trend === 'falling') {
+                label = '▼ Falling';
+                className += 'falling';
+            } else {
+                label = '● Stable';
+                className += 'stable';
+            }
+
+            element.textContent = label;
+            element.className = className;
+        }
+
+        function processDataWithProportionalGaps(data, field) {
+            // Insert nulls proportional to the time gap duration
+            const result = [];
+
+            for (let i = 0; i < data.length; i++) {
+                if (i > 0) {
+                    const prevTime = new Date(data[i - 1].recorded_at);
+                    const currTime = new Date(data[i].recorded_at);
+                    const timeDiffMinutes = (currTime - prevTime) / 1000 / 60;
+
+                    // If gap is more than 5 minutes, insert proportional nulls
+                    if (timeDiffMinutes > 5) {
+                        // Calculate how many 2-minute intervals are missing
+                        const expectedIntervals = Math.floor(timeDiffMinutes / 2);
+                        const gapSize = Math.max(1, expectedIntervals - 1);
+
+                        // Insert nulls to represent the gap
+                        for (let j = 0; j < gapSize; j++) {
+                            result.push(null);
+                        }
+                    }
+                }
+                result.push(data[i][field]);
+            }
+
+            return result;
+        }
+
+        function getLabelsWithProportionalGaps(data) {
+            // Generate labels with proportional gap markers
+            const labels = [];
+
+            for (let i = 0; i < data.length; i++) {
+                if (i > 0) {
+                    const prevTime = new Date(data[i - 1].recorded_at);
+                    const currTime = new Date(data[i].recorded_at);
+                    const timeDiffMinutes = (currTime - prevTime) / 1000 / 60;
+
+                    // If gap is more than 5 minutes, insert gap labels
+                    if (timeDiffMinutes > 5) {
+                        const expectedIntervals = Math.floor(timeDiffMinutes / 2);
+                        const gapSize = Math.max(1, expectedIntervals - 1);
+                        const hours = Math.floor(timeDiffMinutes / 60);
+                        const minutes = Math.floor(timeDiffMinutes % 60);
+
+                        // Insert gap labels
+                        for (let j = 0; j < gapSize; j++) {
+                            if (j === Math.floor(gapSize / 2)) {
+                                // Put time gap label in the middle
+                                labels.push(`GAP: ${hours}h ${minutes}m`);
+                            } else {
+                                labels.push('');
+                            }
+                        }
+                    }
+                }
+                labels.push(new Date(data[i].recorded_at).toLocaleString());
+            }
+
+            return labels;
+        }
+
+        async function loadHistoricalData() {
+            try {
+                const response = await fetch('/api/data?limit=1500');
+                const data = await response.json();
+
+                if (data.length === 0) return;
+
+                // Calculate trends
+                const tideTrend = calculateTrend(data, 'tide_height', 2);
+                const swellTrend = calculateTrend(data, 'wave_height', 2);
+
+                // Update trend indicators
+                updateTrendIndicator('tideTrend', tideTrend);
+                updateTrendIndicator('swellTrend', swellTrend);
+
+                // Create labels with proportional gaps
+                const labels = getLabelsWithProportionalGaps(data);
+
+                updateChart('windSpeedChart', 'Wind Speed', labels, [
+                    { label: 'Spur', data: processDataWithProportionalGaps(data, 'spur_speed'), color: '#667eea' },
+                    { label: 'Clarke', data: processDataWithProportionalGaps(data, 'clarke_speed'), color: '#764ba2' }
+                ], { mode: 'auto-scale', buffer: 0.2 });
+
+                updateChart('windDirectionChart', 'Wind Direction', labels, [
+                    { label: 'Spur', data: processDataWithProportionalGaps(data, 'spur_direction'), color: '#667eea' },
+                    { label: 'Clarke', data: processDataWithProportionalGaps(data, 'clarke_direction'), color: '#764ba2' }
+                ], { mode: 'direction' });
+
+                updateChart('waveChart', 'Wave Height', labels, [
+                    { label: 'Wave (m)', data: processDataWithProportionalGaps(data, 'wave_height'), color: '#4caf50' }
+                ], { mode: 'auto-scale', buffer: 0.2 });
+
+                updateChart('waveDirectionChart', 'Wave Direction', labels, [
+                    { label: 'Wave Direction', data: processDataWithProportionalGaps(data, 'wave_direction'), color: '#ff9800' }
+                ], { mode: 'direction' });
+
+                updateChart('peakPeriodChart', 'Peak Period', labels, [
+                    { label: 'Period (s)', data: processDataWithProportionalGaps(data, 'peak_period'), color: '#e91e63' }
+                ], { mode: 'auto-scale', buffer: 0.2 });
+
+                updateChart('tideChart', 'Tide Height', labels, [
+                    { label: 'Tide (m)', data: processDataWithProportionalGaps(data, 'tide_height'), color: '#00bcd4' }
+                ], { mode: 'fixed', yMin: 0, yMax: 3 });
+
+            } catch (error) {
+                console.error('Error loading historical data:', error);
+            }
+        }
+
+        function getCompassDirection(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                               'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
+
+        function updateChart(canvasId, title, labels, datasets, config = {}) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            const { mode = 'fixed', yMin = null, yMax = null, buffer = 0.2 } = config;
+
+            let yAxisConfig = {
+                ticks: {
+                    callback: function(value) {
+                        if (mode === 'direction') {
+                            return value.toFixed(0) + '° ' + getCompassDirection(value);
+                        }
+                        return value.toFixed(1);
+                    }
+                }
+            };
+
+            // Calculate min/max for auto-scaling mode
+            if (mode === 'auto-scale') {
+                let allValues = [];
+                datasets.forEach(ds => {
+                    allValues = allValues.concat(ds.data.filter(v => v !== null && v !== undefined));
+                });
+
+                if (allValues.length > 0) {
+                    const dataMin = Math.min(...allValues);
+                    const dataMax = Math.max(...allValues);
+                    const range = dataMax - dataMin;
+
+                    yAxisConfig.min = Math.max(0, dataMin - (range * buffer));
+                    yAxisConfig.max = dataMax + (range * buffer);
+                    yAxisConfig.beginAtZero = dataMin - (range * buffer) <= 0;
+                }
+            } else if (mode === 'fixed' && yMin !== null && yMax !== null) {
+                yAxisConfig.min = yMin;
+                yAxisConfig.max = yMax;
+                yAxisConfig.beginAtZero = yMin === 0;
+            } else if (mode === 'direction') {
+                yAxisConfig.min = 0;
+                yAxisConfig.max = 360;
+                yAxisConfig.beginAtZero = true;
+            }
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets.map(ds => ({
+                        label: ds.label,
+                        data: ds.data,
+                        borderColor: ds.color,
+                        backgroundColor: ds.color + '20',
+                        tension: 0.4,
+                        fill: true,
+                        spanGaps: false
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: yAxisConfig,
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load initial data on page load
+        window.addEventListener('load', async () => {
+            await loadLatestData();
+            await loadHistoricalData();
+        });
+    </script>
+</body>
+</html>
