@@ -499,7 +499,12 @@
                 if (allValues.length > 0) {
                     const dataMin = Math.min(...allValues);
                     const dataMax = Math.max(...allValues);
-                    const range = dataMax - dataMin;
+                    let range = dataMax - dataMin;
+
+                    // If all values are the same, create a minimum range
+                    if (range === 0) {
+                        range = Math.max(1, Math.abs(dataMin * 0.2)); // 20% of value or 1, whichever is larger
+                    }
 
                     yAxisConfig.min = Math.max(0, dataMin - (range * buffer));
                     yAxisConfig.max = dataMax + (range * buffer);
