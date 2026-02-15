@@ -494,14 +494,14 @@
                         buildDataItemHTML('Timestamp', data.timestamp, '', null) +
                         buildDataItemHTML('Buoy ID', data.buoy_id, '', null) +
                         buildDataItemHTML('Spur Wind Speed', data.spur_speed, ' kn', 'spur_speed') +
-                        buildDataItemHTML('Spur Direction', data.spur_direction, '°', null) +
+                        buildDataItemHTML('Spur Wind Direction', data.spur_direction != null ? data.spur_direction + '° ' + getCompassDirection(data.spur_direction) : null, '', null) +
                         buildDataItemHTML('Spur Max Gust', data.spur_gust, ' kn', 'spur_gust') +
                         buildDataItemHTML('Clarke Wind Speed', data.clarke_speed, ' kn', 'clarke_speed') +
-                        buildDataItemHTML('Clarke Direction', data.clarke_direction, '°', null) +
+                        buildDataItemHTML('Clarke Wind Direction', data.clarke_direction != null ? data.clarke_direction + '° ' + getCompassDirection(data.clarke_direction) : null, '', null) +
                         buildDataItemHTML('Clarke Max Gust', data.clarke_gust, ' kn', 'clarke_gust') +
                         buildDataItemHTML('Tide Height', data.tide_height, ' m', null) +
                         buildDataItemHTML('Wave Height', data.wave_height, ' m', 'wave_height') +
-                        buildDataItemHTML('Wave Direction', data.wave_direction, '°', null) +
+                        buildDataItemHTML('Wave Direction', data.wave_direction != null ? data.wave_direction + '° ' + getCompassDirection(data.wave_direction) : null, '', null) +
                         buildDataItemHTML('Peak Period', data.peak_period, ' s', null);
 
                     document.getElementById('lastUpdate').textContent = formatTimeLabel(data) || new Date().toLocaleTimeString();
