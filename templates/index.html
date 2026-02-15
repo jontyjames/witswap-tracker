@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Witswap Marine Data Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
     <style>
         * {
             margin: 0;
@@ -14,7 +15,8 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(160deg, #0a1628 0%, #0f2440 50%, #0a1628 100%);
+            color: #e0e7ef;
             min-height: 100vh;
             padding: 20px;
         }
@@ -25,98 +27,188 @@
         }
 
         h1 {
-            color: white;
             text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 24px;
+            font-size: 2.2em;
+            font-weight: 300;
+            color: #e0e7ef;
+            letter-spacing: 1px;
         }
 
+        h1 .accent {
+            color: #00bcd4;
+        }
+
+        /* Controls bar */
         .controls {
-            background: white;
-            padding: 20px;
+            background: rgba(15, 30, 55, 0.85);
+            border: 1px solid rgba(0, 188, 212, 0.15);
+            padding: 16px 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .controls-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
         .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 5px;
+            background: rgba(0, 188, 212, 0.15);
+            color: #00bcd4;
+            border: 1px solid rgba(0, 188, 212, 0.3);
+            padding: 10px 20px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
+            font-size: 14px;
+            transition: all 0.2s;
         }
 
         .btn:hover {
-            background: #5568d3;
+            background: rgba(0, 188, 212, 0.25);
+            border-color: rgba(0, 188, 212, 0.5);
         }
 
         .btn:disabled {
-            background: #ccc;
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
-        .status {
-            color: #666;
-            font-size: 14px;
+        .status-text {
+            color: #8899aa;
+            font-size: 13px;
         }
 
-        .status.success {
-            color: #28a745;
+        .status-text.success {
+            color: #4caf50;
         }
 
-        .status.error {
-            color: #dc3545;
+        .status-text.error {
+            color: #ef5350;
         }
 
+        /* Auto-refresh indicator */
+        .refresh-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #8899aa;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .pulse-dot.unhealthy {
+            background: #ef5350;
+            animation: none;
+        }
+
+        .pulse-dot.degraded {
+            background: #ffb74d;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Current conditions */
         .current-data {
-            background: white;
+            background: rgba(15, 30, 55, 0.85);
+            border: 1px solid rgba(0, 188, 212, 0.15);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
 
         .current-data h2 {
-            color: #333;
-            margin-bottom: 15px;
+            color: #e0e7ef;
+            font-weight: 300;
+            margin-bottom: 16px;
+            font-size: 1.3em;
         }
 
         .data-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            gap: 12px;
         }
 
         .data-item {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #667eea;
+            background: rgba(10, 22, 40, 0.6);
+            padding: 14px;
+            border-radius: 6px;
+            border-left: 3px solid #00bcd4;
+            position: relative;
+        }
+
+        .data-item.warning {
+            border-left-color: #ffb74d;
+        }
+
+        .data-item.danger {
+            border-left-color: #ef5350;
         }
 
         .data-item label {
             display: block;
-            color: #666;
-            font-size: 12px;
-            margin-bottom: 5px;
+            color: #8899aa;
+            font-size: 11px;
+            margin-bottom: 4px;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .data-item value {
             display: block;
-            color: #333;
+            color: #e0e7ef;
             font-size: 20px;
-            font-weight: bold;
+            font-weight: 600;
         }
 
+        .alert-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .alert-badge.warning {
+            background: rgba(255, 183, 77, 0.2);
+            color: #ffb74d;
+            border: 1px solid rgba(255, 183, 77, 0.3);
+        }
+
+        .alert-badge.danger {
+            background: rgba(239, 83, 80, 0.2);
+            color: #ef5350;
+            border: 1px solid rgba(239, 83, 80, 0.3);
+        }
+
+        /* Charts */
         .charts {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -124,68 +216,124 @@
         }
 
         .chart-container {
-            background: white;
+            background: rgba(15, 30, 55, 0.85);
+            border: 1px solid rgba(0, 188, 212, 0.15);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .chart-container h3 {
-            color: #333;
-            margin-bottom: 15px;
+            color: #e0e7ef;
+            font-weight: 300;
+            margin-bottom: 12px;
+            font-size: 1.1em;
         }
 
         .loading {
             text-align: center;
-            color: white;
-            font-size: 18px;
-            margin: 20px 0;
+            color: #8899aa;
+            font-size: 14px;
+            padding: 20px;
         }
 
         .trend {
-            font-size: 14px;
-            font-weight: bold;
-            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 8px;
             border-radius: 4px;
-            margin-left: 10px;
+            margin-left: 8px;
         }
 
         .trend.rising {
-            color: #fff;
-            background-color: #28a745;
+            color: #4caf50;
+            background: rgba(76, 175, 80, 0.15);
         }
 
         .trend.falling {
-            color: #fff;
-            background-color: #dc3545;
+            color: #ef5350;
+            background: rgba(239, 83, 80, 0.15);
         }
 
         .trend.stable {
-            color: #fff;
-            background-color: #6c757d;
+            color: #8899aa;
+            background: rgba(136, 153, 170, 0.1);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 1.6em;
+                margin-bottom: 16px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .controls-left, .controls-right {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .charts {
+                grid-template-columns: 1fr;
+            }
+
+            .data-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .data-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .data-item value {
+                font-size: 16px;
+            }
+
+            .data-item label {
+                font-size: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Port of Napier Marine Data Tracker</h1>
+        <h1>Port of Napier <span class="accent">Marine Tracker</span></h1>
 
         <div class="controls">
-            <button class="btn" onclick="fetchData()">Fetch Data Now</button>
-            <div class="status" id="status">Ready</div>
-            <div class="status">Last updated: <span id="lastUpdate">Never</span></div>
+            <div class="controls-left">
+                <button class="btn" id="fetchBtn" onclick="manualFetch()">Fetch Now</button>
+                <span class="status-text" id="status">Ready</span>
+            </div>
+            <div class="controls-right">
+                <div class="refresh-indicator">
+                    <div class="pulse-dot" id="healthDot"></div>
+                    <span id="refreshCountdown">Auto-refresh 2:00</span>
+                </div>
+                <span class="status-text">Updated: <span id="lastUpdate">--</span></span>
+            </div>
         </div>
 
         <div class="current-data">
             <h2>Current Conditions</h2>
             <div class="data-grid" id="currentData">
-                <div class="loading">Click "Fetch Data Now" to load current conditions</div>
+                <div class="loading">Loading current conditions...</div>
             </div>
         </div>
 
         <div class="charts">
             <div class="chart-container">
-                <h3>Wind Speed (Knots)</h3>
+                <h3>Wind Speed (kn)</h3>
                 <canvas id="windSpeedChart"></canvas>
             </div>
             <div class="chart-container">
@@ -201,7 +349,7 @@
                 <canvas id="waveDirectionChart"></canvas>
             </div>
             <div class="chart-container">
-                <h3>Peak Period (seconds)</h3>
+                <h3>Peak Period (s)</h3>
                 <canvas id="peakPeriodChart"></canvas>
             </div>
             <div class="chart-container">
@@ -214,116 +362,83 @@
     <script>
         let charts = {};
 
-        async function fetchData() {
-            const statusEl = document.getElementById('status');
-            const btn = event.target;
+        // ── Alert thresholds ──
+        const THRESHOLDS = {
+            spur_speed:   { warning: 25, danger: 35 },
+            clarke_speed: { warning: 25, danger: 35 },
+            spur_gust:    { warning: 30, danger: 45 },
+            clarke_gust:  { warning: 30, danger: 45 },
+            wave_height:  { warning: 2.0, danger: 3.0 },
+        };
 
-            btn.disabled = true;
-            statusEl.textContent = 'Fetching data...';
-            statusEl.className = 'status';
+        // ── Auto-refresh state ──
+        const REFRESH_INTERVAL = 120; // seconds
+        const STATUS_CHECK_INTERVAL = 300; // seconds
+        let refreshCountdown = REFRESH_INTERVAL;
+        let refreshTimer = null;
+        let statusTimer = null;
 
-            try {
-                const response = await fetch('/api/fetch', { method: 'POST' });
-                const result = await response.json();
+        // ── Format timestamp for chart labels ──
+        function formatTimeLabel(item) {
+            // Prefer the scraped timestamp (always NZ local time)
+            const raw = item.timestamp || item.recorded_at;
+            if (!raw) return '';
 
-                if (result.success) {
-                    statusEl.textContent = 'Data fetched successfully!';
-                    statusEl.className = 'status success';
-                    document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
-                    await loadLatestData();
-                    await loadHistoricalData();
-                } else {
-                    statusEl.textContent = 'Error fetching data';
-                    statusEl.className = 'status error';
-                }
-            } catch (error) {
-                statusEl.textContent = 'Error: ' + error.message;
-                statusEl.className = 'status error';
-            } finally {
-                btn.disabled = false;
+            // If it's in "DD/MM/YYYY HH:MM" or similar scraped format, extract time
+            const timeMatch = raw.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (timeMatch) {
+                return timeMatch[1].padStart(2, '0') + ':' + timeMatch[2];
             }
+
+            // Fallback: try parsing as ISO date
+            const d = new Date(raw);
+            if (!isNaN(d.getTime())) {
+                return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+            }
+
+            return '';
         }
 
-        async function loadLatestData() {
-            try {
-                const response = await fetch('/api/latest');
-                const data = await response.json();
-
-                if (data) {
-                    const container = document.getElementById('currentData');
-                    container.innerHTML = `
-                        <div class="data-item">
-                            <label>Timestamp</label>
-                            <value>${data.timestamp || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Buoy ID</label>
-                            <value>${data.buoy_id || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Spur Wind Speed</label>
-                            <value>${data.spur_speed || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Spur Direction</label>
-                            <value>${data.spur_direction || 'N/A'}°</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Spur Max Gust</label>
-                            <value>${data.spur_gust || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Clarke Wind Speed</label>
-                            <value>${data.clarke_speed || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Clarke Direction</label>
-                            <value>${data.clarke_direction || 'N/A'}°</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Clarke Max Gust</label>
-                            <value>${data.clarke_gust || 'N/A'}</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Tide Height</label>
-                            <value>${data.tide_height || 'N/A'} m</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Wave Height</label>
-                            <value>${data.wave_height || 'N/A'} m</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Wave Direction</label>
-                            <value>${data.wave_direction || 'N/A'}°</value>
-                        </div>
-                        <div class="data-item">
-                            <label>Peak Period</label>
-                            <value>${data.peak_period || 'N/A'} s</value>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading latest data:', error);
-            }
+        // ── Alert level for a value ──
+        function getAlertLevel(field, value) {
+            const t = THRESHOLDS[field];
+            if (!t || value === null || value === undefined) return null;
+            if (value >= t.danger) return 'danger';
+            if (value >= t.warning) return 'warning';
+            return null;
         }
 
+        function buildDataItemHTML(label, value, unit, field) {
+            const numVal = parseFloat(value);
+            const alert = getAlertLevel(field, isNaN(numVal) ? null : numVal);
+            const alertClass = alert ? ` ${alert}` : '';
+            const badgeHTML = alert ? `<span class="alert-badge ${alert}">${alert}</span>` : '';
+            const display = (value !== null && value !== undefined && value !== '') ? value : 'N/A';
+            return `<div class="data-item${alertClass}">
+                ${badgeHTML}
+                <label>${label}</label>
+                <value>${display}${unit}</value>
+            </div>`;
+        }
+
+        // ── Compass helper ──
+        function getCompassDirection(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                               'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const index = Math.round(degrees / 22.5) % 16;
+            return directions[index];
+        }
+
+        // ── Trend calculation ──
         function calculateTrend(data, field, hoursBack = 2) {
             if (data.length === 0) return 'stable';
-
-            // Get current value (most recent)
             const current = data[data.length - 1][field];
             if (current === null || current === undefined) return 'stable';
-
-            // Find data point from 2 hours ago (120 minutes / 2 min intervals = 60 data points)
             const pointsBack = (hoursBack * 60) / 2;
             const pastIndex = Math.max(0, data.length - 1 - pointsBack);
             const past = data[pastIndex][field];
-
             if (past === null || past === undefined) return 'stable';
-
-            // Calculate change threshold (5% of current value, minimum 0.05)
             const threshold = Math.max(0.05, Math.abs(current * 0.05));
-
             if (current > past + threshold) return 'rising';
             if (current < past - threshold) return 'falling';
             return 'stable';
@@ -332,129 +447,120 @@
         function updateTrendIndicator(elementId, trend) {
             const element = document.getElementById(elementId);
             if (!element) return;
-
-            let label = '';
-            let className = 'trend ';
-
-            if (trend === 'rising') {
-                label = '▲ Rising';
-                className += 'rising';
-            } else if (trend === 'falling') {
-                label = '▼ Falling';
-                className += 'falling';
-            } else {
-                label = '● Stable';
-                className += 'stable';
-            }
-
-            element.textContent = label;
-            element.className = className;
+            const labels = { rising: '▲ Rising', falling: '▼ Falling', stable: '● Stable' };
+            element.textContent = labels[trend] || '';
+            element.className = 'trend ' + trend;
         }
 
-        function processDataWithProportionalGaps(data, field) {
-            // Insert nulls proportional to the time gap duration
-            const result = [];
+        // ── Manual fetch ──
+        async function manualFetch() {
+            const statusEl = document.getElementById('status');
+            const btn = document.getElementById('fetchBtn');
 
-            for (let i = 0; i < data.length; i++) {
-                if (i > 0) {
-                    const prevTime = new Date(data[i - 1].recorded_at);
-                    const currTime = new Date(data[i].recorded_at);
-                    const timeDiffMinutes = (currTime - prevTime) / 1000 / 60;
+            btn.disabled = true;
+            statusEl.textContent = 'Fetching...';
+            statusEl.className = 'status-text';
 
-                    // If gap is more than 5 minutes, insert proportional nulls
-                    if (timeDiffMinutes > 5) {
-                        // Calculate how many 2-minute intervals are missing
-                        const expectedIntervals = Math.floor(timeDiffMinutes / 2);
-                        const gapSize = Math.max(1, expectedIntervals - 1);
+            try {
+                const response = await fetch('/api/fetch', { method: 'POST' });
+                const result = await response.json();
 
-                        // Insert nulls to represent the gap
-                        for (let j = 0; j < gapSize; j++) {
-                            result.push(null);
-                        }
-                    }
+                if (result.success) {
+                    statusEl.textContent = 'Fetched successfully';
+                    statusEl.className = 'status-text success';
+                    await refreshDashboard();
+                    resetCountdown();
+                } else {
+                    statusEl.textContent = 'Fetch failed';
+                    statusEl.className = 'status-text error';
                 }
-                result.push(data[i][field]);
+            } catch (error) {
+                statusEl.textContent = 'Error: ' + error.message;
+                statusEl.className = 'status-text error';
+            } finally {
+                btn.disabled = false;
             }
-
-            return result;
         }
 
-        function getLabelsWithProportionalGaps(data) {
-            // Generate labels with proportional gap markers
-            const labels = [];
+        // ── Load latest data into current-conditions cards ──
+        async function loadLatestData() {
+            try {
+                const response = await fetch('/api/latest');
+                const data = await response.json();
 
-            for (let i = 0; i < data.length; i++) {
-                if (i > 0) {
-                    const prevTime = new Date(data[i - 1].recorded_at);
-                    const currTime = new Date(data[i].recorded_at);
-                    const timeDiffMinutes = (currTime - prevTime) / 1000 / 60;
+                if (data) {
+                    const container = document.getElementById('currentData');
+                    container.innerHTML =
+                        buildDataItemHTML('Timestamp', data.timestamp, '', null) +
+                        buildDataItemHTML('Buoy ID', data.buoy_id, '', null) +
+                        buildDataItemHTML('Spur Wind Speed', data.spur_speed, ' kn', 'spur_speed') +
+                        buildDataItemHTML('Spur Direction', data.spur_direction, '°', null) +
+                        buildDataItemHTML('Spur Max Gust', data.spur_gust, ' kn', 'spur_gust') +
+                        buildDataItemHTML('Clarke Wind Speed', data.clarke_speed, ' kn', 'clarke_speed') +
+                        buildDataItemHTML('Clarke Direction', data.clarke_direction, '°', null) +
+                        buildDataItemHTML('Clarke Max Gust', data.clarke_gust, ' kn', 'clarke_gust') +
+                        buildDataItemHTML('Tide Height', data.tide_height, ' m', null) +
+                        buildDataItemHTML('Wave Height', data.wave_height, ' m', 'wave_height') +
+                        buildDataItemHTML('Wave Direction', data.wave_direction, '°', null) +
+                        buildDataItemHTML('Peak Period', data.peak_period, ' s', null);
 
-                    // If gap is more than 5 minutes, insert gap labels
-                    if (timeDiffMinutes > 5) {
-                        const expectedIntervals = Math.floor(timeDiffMinutes / 2);
-                        const gapSize = Math.max(1, expectedIntervals - 1);
-                        const hours = Math.floor(timeDiffMinutes / 60);
-                        const minutes = Math.floor(timeDiffMinutes % 60);
-
-                        // Insert gap labels
-                        for (let j = 0; j < gapSize; j++) {
-                            if (j === Math.floor(gapSize / 2)) {
-                                // Put time gap label in the middle
-                                labels.push(`GAP: ${hours}h ${minutes}m`);
-                            } else {
-                                labels.push('');
-                            }
-                        }
-                    }
+                    document.getElementById('lastUpdate').textContent = formatTimeLabel(data) || new Date().toLocaleTimeString();
                 }
-                labels.push(new Date(data[i].recorded_at).toLocaleString());
+            } catch (error) {
+                console.error('Error loading latest data:', error);
             }
-
-            return labels;
         }
 
+        // ── Load historical data and draw charts ──
         async function loadHistoricalData() {
             try {
                 const response = await fetch('/api/data?limit=1500');
                 const data = await response.json();
-
                 if (data.length === 0) return;
 
-                // Calculate trends
-                const tideTrend = calculateTrend(data, 'tide_height', 2);
-                const swellTrend = calculateTrend(data, 'wave_height', 2);
+                // Trends
+                updateTrendIndicator('tideTrend', calculateTrend(data, 'tide_height', 2));
+                updateTrendIndicator('swellTrend', calculateTrend(data, 'wave_height', 2));
 
-                // Update trend indicators
-                updateTrendIndicator('tideTrend', tideTrend);
-                updateTrendIndicator('swellTrend', swellTrend);
+                // Labels from scraped timestamp (NZ local), no proportional gap inflation
+                const labels = data.map(d => formatTimeLabel(d));
 
-                // Create labels with proportional gaps
-                const labels = getLabelsWithProportionalGaps(data);
+                updateChart('windSpeedChart', labels, [
+                    { label: 'Spur', data: data.map(d => d.spur_speed), color: '#00bcd4' },
+                    { label: 'Clarke', data: data.map(d => d.clarke_speed), color: '#26c6da' }
+                ], {
+                    mode: 'auto-scale', buffer: 0.2,
+                    annotations: buildThresholdAnnotations([
+                        { value: 25, label: 'Warn', color: '#ffb74d' },
+                        { value: 35, label: 'Danger', color: '#ef5350' }
+                    ], data, ['spur_speed', 'clarke_speed'])
+                });
 
-                updateChart('windSpeedChart', 'Wind Speed', labels, [
-                    { label: 'Spur', data: processDataWithProportionalGaps(data, 'spur_speed'), color: '#667eea' },
-                    { label: 'Clarke', data: processDataWithProportionalGaps(data, 'clarke_speed'), color: '#764ba2' }
-                ], { mode: 'auto-scale', buffer: 0.2 });
-
-                updateChart('windDirectionChart', 'Wind Direction', labels, [
-                    { label: 'Spur', data: processDataWithProportionalGaps(data, 'spur_direction'), color: '#667eea' },
-                    { label: 'Clarke', data: processDataWithProportionalGaps(data, 'clarke_direction'), color: '#764ba2' }
+                updateChart('windDirectionChart', labels, [
+                    { label: 'Spur', data: data.map(d => d.spur_direction), color: '#00bcd4' },
+                    { label: 'Clarke', data: data.map(d => d.clarke_direction), color: '#26c6da' }
                 ], { mode: 'direction' });
 
-                updateChart('waveChart', 'Wave Height', labels, [
-                    { label: 'Wave (m)', data: processDataWithProportionalGaps(data, 'wave_height'), color: '#4caf50' }
-                ], { mode: 'auto-scale', buffer: 0.2 });
+                updateChart('waveChart', labels, [
+                    { label: 'Wave (m)', data: data.map(d => d.wave_height), color: '#4caf50' }
+                ], {
+                    mode: 'auto-scale', buffer: 0.2,
+                    annotations: buildThresholdAnnotations([
+                        { value: 2.0, label: 'Warn', color: '#ffb74d' },
+                        { value: 3.0, label: 'Danger', color: '#ef5350' }
+                    ], data, ['wave_height'])
+                });
 
-                updateChart('waveDirectionChart', 'Wave Direction', labels, [
-                    { label: 'Wave Direction', data: processDataWithProportionalGaps(data, 'wave_direction'), color: '#ff9800' }
+                updateChart('waveDirectionChart', labels, [
+                    { label: 'Wave Dir', data: data.map(d => d.wave_direction), color: '#ff9800' }
                 ], { mode: 'direction' });
 
-                updateChart('peakPeriodChart', 'Peak Period', labels, [
-                    { label: 'Period (s)', data: processDataWithProportionalGaps(data, 'peak_period'), color: '#e91e63' }
+                updateChart('peakPeriodChart', labels, [
+                    { label: 'Period (s)', data: data.map(d => d.peak_period), color: '#ce93d8' }
                 ], { mode: 'auto-scale', buffer: 0.2 });
 
-                updateChart('tideChart', 'Tide Height', labels, [
-                    { label: 'Tide (m)', data: processDataWithProportionalGaps(data, 'tide_height'), color: '#00bcd4' }
+                updateChart('tideChart', labels, [
+                    { label: 'Tide (m)', data: data.map(d => d.tide_height), color: '#00bcd4' }
                 ], { mode: 'fixed', yMin: 0, yMax: 3 });
 
             } catch (error) {
@@ -462,50 +568,85 @@
             }
         }
 
-        function getCompassDirection(degrees) {
-            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-                               'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-            const index = Math.round(degrees / 22.5) % 16;
-            return directions[index];
+        // ── Build annotation lines only if data is near threshold ──
+        function buildThresholdAnnotations(levels, data, fields) {
+            const allValues = [];
+            fields.forEach(f => {
+                data.forEach(d => {
+                    if (d[f] !== null && d[f] !== undefined) allValues.push(d[f]);
+                });
+            });
+            if (allValues.length === 0) return {};
+
+            const maxVal = Math.max(...allValues);
+            const annotations = {};
+
+            levels.forEach((level, i) => {
+                // Show line if max data value is within 30% of threshold
+                if (maxVal >= level.value * 0.7) {
+                    annotations['threshold' + i] = {
+                        type: 'line',
+                        yMin: level.value,
+                        yMax: level.value,
+                        borderColor: level.color,
+                        borderWidth: 1.5,
+                        borderDash: [6, 4],
+                        label: {
+                            display: true,
+                            content: level.label + ' ' + level.value,
+                            position: 'start',
+                            backgroundColor: 'transparent',
+                            color: level.color,
+                            font: { size: 10 }
+                        }
+                    };
+                }
+            });
+
+            return annotations;
         }
 
-        function updateChart(canvasId, title, labels, datasets, config = {}) {
+        // ── Chart theme colours ──
+        const CHART_COLORS = {
+            grid: 'rgba(0, 188, 212, 0.06)',
+            tick: '#8899aa',
+            legend: '#8899aa',
+        };
+
+        // ── Core chart update function ──
+        function updateChart(canvasId, labels, datasets, config = {}) {
             const ctx = document.getElementById(canvasId).getContext('2d');
 
             if (charts[canvasId]) {
                 charts[canvasId].destroy();
             }
 
-            const { mode = 'fixed', yMin = null, yMax = null, buffer = 0.2 } = config;
+            const { mode = 'fixed', yMin = null, yMax = null, buffer = 0.2, annotations = {} } = config;
 
             let yAxisConfig = {
+                grid: { color: CHART_COLORS.grid },
                 ticks: {
+                    color: CHART_COLORS.tick,
                     callback: function(value) {
                         if (mode === 'direction') {
-                            return value.toFixed(0) + '° ' + getCompassDirection(value);
+                            const compass = {0:'N', 45:'NE', 90:'E', 135:'SE', 180:'S', 225:'SW', 270:'W', 315:'NW', 360:'N'};
+                            return compass[value] || value + '\u00B0';
                         }
                         return value.toFixed(1);
                     }
                 }
             };
 
-            // Calculate min/max for auto-scaling mode
             if (mode === 'auto-scale') {
                 let allValues = [];
                 datasets.forEach(ds => {
                     allValues = allValues.concat(ds.data.filter(v => v !== null && v !== undefined));
                 });
-
                 if (allValues.length > 0) {
                     const dataMin = Math.min(...allValues);
                     const dataMax = Math.max(...allValues);
                     let range = dataMax - dataMin;
-
-                    // If all values are the same, create a minimum range
-                    if (range === 0) {
-                        range = Math.max(1, Math.abs(dataMin * 0.2)); // 20% of value or 1, whichever is larger
-                    }
-
+                    if (range === 0) range = Math.max(1, Math.abs(dataMin * 0.2));
                     yAxisConfig.min = Math.max(0, dataMin - (range * buffer));
                     yAxisConfig.max = dataMax + (range * buffer);
                     yAxisConfig.beginAtZero = dataMin - (range * buffer) <= 0;
@@ -518,6 +659,7 @@
                 yAxisConfig.min = 0;
                 yAxisConfig.max = 360;
                 yAxisConfig.beginAtZero = true;
+                yAxisConfig.ticks.stepSize = 45;
             }
 
             charts[canvasId] = new Chart(ctx, {
@@ -528,29 +670,37 @@
                         label: ds.label,
                         data: ds.data,
                         borderColor: ds.color,
-                        backgroundColor: ds.color + '20',
-                        tension: 0.4,
+                        backgroundColor: ds.color + '15',
+                        tension: 0.3,
                         fill: true,
-                        spanGaps: false
+                        spanGaps: false,
+                        pointRadius: 0,
+                        borderWidth: 1.5
                     }))
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    animation: { duration: 400 },
                     plugins: {
                         legend: {
-                            display: true
+                            display: true,
+                            labels: { color: CHART_COLORS.legend }
                         },
-                        title: {
-                            display: false
+                        title: { display: false },
+                        annotation: {
+                            annotations: annotations
                         }
                     },
                     scales: {
                         y: yAxisConfig,
                         x: {
+                            grid: { color: CHART_COLORS.grid },
                             ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
+                                color: CHART_COLORS.tick,
+                                maxTicksLimit: 12,
+                                maxRotation: 0,
+                                minRotation: 0
                             }
                         }
                     }
@@ -558,10 +708,55 @@
             });
         }
 
-        // Load initial data on page load
+        // ── Dashboard refresh (no page reload) ──
+        async function refreshDashboard() {
+            await Promise.all([loadLatestData(), loadHistoricalData()]);
+        }
+
+        // ── Auto-refresh countdown ──
+        function resetCountdown() {
+            refreshCountdown = REFRESH_INTERVAL;
+        }
+
+        function startAutoRefresh() {
+            refreshTimer = setInterval(async () => {
+                refreshCountdown--;
+                const mins = Math.floor(refreshCountdown / 60);
+                const secs = refreshCountdown % 60;
+                document.getElementById('refreshCountdown').textContent =
+                    'Auto-refresh ' + mins + ':' + secs.toString().padStart(2, '0');
+
+                if (refreshCountdown <= 0) {
+                    resetCountdown();
+                    await refreshDashboard();
+                }
+            }, 1000);
+        }
+
+        // ── Health status check ──
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                const dot = document.getElementById('healthDot');
+                dot.className = 'pulse-dot';
+                if (status.health === 'unhealthy') dot.classList.add('unhealthy');
+                else if (status.health === 'degraded') dot.classList.add('degraded');
+            } catch (e) {
+                document.getElementById('healthDot').className = 'pulse-dot unhealthy';
+            }
+        }
+
+        function startStatusCheck() {
+            checkHealth();
+            statusTimer = setInterval(checkHealth, STATUS_CHECK_INTERVAL * 1000);
+        }
+
+        // ── Init on page load ──
         window.addEventListener('load', async () => {
-            await loadLatestData();
-            await loadHistoricalData();
+            await refreshDashboard();
+            startAutoRefresh();
+            startStatusCheck();
         });
     </script>
 </body>
