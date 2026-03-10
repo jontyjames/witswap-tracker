@@ -514,53 +514,65 @@
         // ── Load historical data and draw charts ──
         async function loadHistoricalData() {
             try {
-                const response = await fetch('/api/data?limit=1500');
+                const response = await fetch('/api/data/averaged');
                 const data = await response.json();
                 if (data.length === 0) return;
 
-                // Trends
-                updateTrendIndicator('tideTrend', calculateTrend(data, 'tide_height', 2));
-                updateTrendIndicator('swellTrend', calculateTrend(data, 'wave_height', 2));
+                // Trends (use avg fields)
+                updateTrendIndicator('tideTrend', calculateTrend(data, 'tide_height_avg', 2));
+                updateTrendIndicator('swellTrend', calculateTrend(data, 'wave_height_avg', 2));
 
-                // Labels from scraped timestamp (NZ local), no proportional gap inflation
                 const labels = data.map(d => formatTimeLabel(d));
 
+                // Helper: build threshold annotations using avg data
+                function avgThresholdData(fields) {
+                    const fakeData = data.map(d => {
+                        const obj = {};
+                        fields.forEach(f => { obj[f] = d[f + '_avg']; });
+                        return obj;
+                    });
+                    return fakeData;
+                }
+
                 updateChart('windSpeedChart', labels, [
-                    { label: 'Spur', data: data.map(d => d.spur_speed), color: '#00bcd4' },
-                    { label: 'Clarke', data: data.map(d => d.clarke_speed), color: '#26c6da' }
+                    { label: 'Spur', data: data.map(d => d.spur_speed_avg), color: '#00bcd4' },
+                    { label: 'Spur (max)', data: data.map(d => d.spur_speed_max), color: '#00bcd4', envelope: true },
+                    { label: 'Clarke', data: data.map(d => d.clarke_speed_avg), color: '#26c6da' },
+                    { label: 'Clarke (max)', data: data.map(d => d.clarke_speed_max), color: '#26c6da', envelope: true }
                 ], {
                     mode: 'auto-scale', buffer: 0.2,
                     annotations: buildThresholdAnnotations([
                         { value: 25, label: 'Warn', color: '#ffb74d' },
                         { value: 35, label: 'Danger', color: '#ef5350' }
-                    ], data, ['spur_speed', 'clarke_speed'])
+                    ], avgThresholdData(['spur_speed', 'clarke_speed']), ['spur_speed', 'clarke_speed'])
                 });
 
                 updateChart('windDirectionChart', labels, [
-                    { label: 'Spur', data: data.map(d => d.spur_direction), color: '#00bcd4' },
-                    { label: 'Clarke', data: data.map(d => d.clarke_direction), color: '#26c6da' }
+                    { label: 'Spur', data: data.map(d => d.spur_direction_avg), color: '#00bcd4' },
+                    { label: 'Clarke', data: data.map(d => d.clarke_direction_avg), color: '#26c6da' }
                 ], { mode: 'direction' });
 
                 updateChart('waveChart', labels, [
-                    { label: 'Wave (m)', data: data.map(d => d.wave_height), color: '#4caf50' }
+                    { label: 'Wave (m)', data: data.map(d => d.wave_height_avg), color: '#4caf50' },
+                    { label: 'Wave (max)', data: data.map(d => d.wave_height_max), color: '#4caf50', envelope: true }
                 ], {
                     mode: 'auto-scale', buffer: 0.2,
                     annotations: buildThresholdAnnotations([
                         { value: 2.0, label: 'Warn', color: '#ffb74d' },
                         { value: 3.0, label: 'Danger', color: '#ef5350' }
-                    ], data, ['wave_height'])
+                    ], avgThresholdData(['wave_height']), ['wave_height'])
                 });
 
                 updateChart('waveDirectionChart', labels, [
-                    { label: 'Wave Dir', data: data.map(d => d.wave_direction), color: '#ff9800' }
+                    { label: 'Wave Dir', data: data.map(d => d.wave_direction_avg), color: '#ff9800' }
                 ], { mode: 'direction' });
 
                 updateChart('peakPeriodChart', labels, [
-                    { label: 'Period (s)', data: data.map(d => d.peak_period), color: '#ce93d8' }
+                    { label: 'Period (s)', data: data.map(d => d.peak_period_avg), color: '#ce93d8' }
                 ], { mode: 'auto-scale', buffer: 0.2 });
 
                 updateChart('tideChart', labels, [
-                    { label: 'Tide (m)', data: data.map(d => d.tide_height), color: '#00bcd4' }
+                    { label: 'Tide (m)', data: data.map(d => d.tide_height_avg), color: '#00bcd4' }
                 ], { mode: 'fixed', yMin: 0, yMax: 3 });
 
             } catch (error) {
@@ -666,17 +678,33 @@
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: datasets.map(ds => ({
-                        label: ds.label,
-                        data: ds.data,
-                        borderColor: ds.color,
-                        backgroundColor: ds.color + '15',
-                        tension: 0.3,
-                        fill: true,
-                        spanGaps: false,
-                        pointRadius: 0,
-                        borderWidth: 1.5
-                    }))
+                    datasets: datasets.map(ds => {
+                        if (ds.envelope) {
+                            return {
+                                label: ds.label,
+                                data: ds.data,
+                                borderColor: ds.color + '60',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                fill: false,
+                                spanGaps: false,
+                                pointRadius: 0,
+                                borderWidth: 1,
+                                borderDash: [2, 2]
+                            };
+                        }
+                        return {
+                            label: ds.label,
+                            data: ds.data,
+                            borderColor: ds.color,
+                            backgroundColor: ds.color + '15',
+                            tension: 0.3,
+                            fill: true,
+                            spanGaps: false,
+                            pointRadius: 0,
+                            borderWidth: 1.5
+                        };
+                    })
                 },
                 options: {
                     responsive: true,

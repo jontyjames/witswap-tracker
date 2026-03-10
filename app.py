@@ -253,6 +253,60 @@ def get_data():
     return jsonify(data[::-1])  # Reverse to get chronological order
 
 
+@app.route('/api/data/averaged')
+def get_averaged_data():
+    """API endpoint to retrieve 10-minute averaged data with max envelope"""
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('SELECT * FROM marine_data ORDER BY id ASC')
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+
+    if not rows:
+        return jsonify([])
+
+    # Group into 10-minute buckets based on recorded_at
+    buckets = {}
+    for row in rows:
+        ra = row.get('recorded_at', '')
+        try:
+            dt = datetime.fromisoformat(ra)
+        except (ValueError, TypeError):
+            continue
+        # Round down to nearest 10 minutes
+        bucket_key = dt.replace(minute=(dt.minute // 10) * 10, second=0, microsecond=0).isoformat()
+        buckets.setdefault(bucket_key, []).append(row)
+
+    numeric_fields = [
+        'spur_speed', 'spur_direction', 'spur_gust',
+        'clarke_speed', 'clarke_direction', 'clarke_gust',
+        'tide_height', 'wave_height', 'wave_direction', 'peak_period',
+        'w1', 'w6m'
+    ]
+
+    result = []
+    for bucket_key in sorted(buckets.keys()):
+        group = buckets[bucket_key]
+        entry = {'bucket': bucket_key}
+        # Carry forward the timestamp from the last row in the bucket for label display
+        entry['timestamp'] = group[-1].get('timestamp', '')
+        entry['recorded_at'] = bucket_key
+
+        for field in numeric_fields:
+            values = [r[field] for r in group if r.get(field) is not None]
+            if values:
+                entry[f'{field}_avg'] = round(sum(values) / len(values), 2)
+                entry[f'{field}_max'] = round(max(values), 2)
+            else:
+                entry[f'{field}_avg'] = None
+                entry[f'{field}_max'] = None
+
+        result.append(entry)
+
+    return jsonify(result)
+
+
 @app.route('/api/latest')
 def get_latest():
     """API endpoint to get the most recent data point"""
